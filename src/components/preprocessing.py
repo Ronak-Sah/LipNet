@@ -1,9 +1,11 @@
 import cv2
+import os
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
+import torch 
 
-class Tokenize():
+class Tokenizer():
     def __init__(self):
         self.vocab = list("abcdefghijklmnopqrstuvwxyz1234567890!ABCDEFGHIJKLMNOPQRSTUVWXYZ ")
         self.char_to_idx = {c: i+1 for i, c in enumerate(self.vocab)} 
@@ -16,14 +18,20 @@ class Tokenize():
 
 
 
-
+def decode_align(path):
+    words=[]
+    with open(path,'r') as fobj:
+        for line in fobj:
+            _,_,word=line.strip().split()
+            if word!= "sil":
+                words.append(word)
+    return " ".join(words)
 
 
 class Frames():
-    def __init__(self):
+    def __init__(self,model_path):
         base_options = python.BaseOptions(
-            model_asset_path=r"C:\Users\ronak\Downloads\face_landmarker.task"
-        )
+            model_asset_path=model_path)
         options = vision.FaceLandmarkerOptions(
             base_options=base_options,
             num_faces=1
@@ -85,3 +93,38 @@ class Frames():
         
 
         return mouth_frames
+
+
+
+class Loader():
+    def __init__(self):
+        pass
+    def load_data(self,X_path,y_path, alignment_data_path, speaker_data_path,landmark_path):
+
+        X_all = []
+        y_all = []
+
+        for align_file, video_file in zip(X_path, y_path):
+            alignment_path=os.path.join(alignment_data_path,align_file)
+            speaker_path=os.path.join(speaker_data_path,video_file)
+            
+            frames=Frames(landmark_path)
+            tokeniser=Tokenizer()
+
+            text=decode_align(alignment_path)
+            decode_text=tokeniser.text_to_labels(text)
+
+                    
+            frames=frames.extract_mouth_frames(speaker_path)
+            frames = torch.tensor(frames, dtype=torch.float32)
+            frames = frames.unsqueeze(0)
+
+            X_all.append(frames)
+            y_all.append(torch.tensor(decode_text, dtype=torch.long))   
+
+        video_tensors = torch.nn.utils.rnn.pad_sequence(
+            X_all, batch_first=True
+        )   
+                    
+        return video_tensors, y_all
+        
