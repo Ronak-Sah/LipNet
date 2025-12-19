@@ -1,0 +1,2 @@
+model_trainer:
+  epochs : 1
