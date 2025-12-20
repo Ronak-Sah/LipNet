@@ -11,7 +11,7 @@ from src.components.preprocessing import Tokenizer,Loader
 
 
 class Cnn_Dataset(Dataset):
-    def __init__(self, X_path, y_path, limit=1000):
+    def __init__(self, X_path, y_path, limit=500):
         self.X_path = X_path[:limit]
         self.y_path = y_path[:limit]
 
@@ -75,8 +75,8 @@ class Model_Trainer:
             batch_no=0
             for X_batch, y_batch in dataloader:
                 batch_no=batch_no+1
-                rem=(1000//self.config.batch_size)-batch_no+1
-                print(f"Batch no : {batch_no}, Total batch : {1000/self.config.batch_size}, Remaining batch :{rem}" )
+                rem=(500//self.config.batch_size)-batch_no+1
+                print(f"Batch no : {batch_no}, Total batch : {500/self.config.batch_size}, Remaining batch :{rem}" )
                 X,y=loader.load_data(X_batch, y_batch, self.config.alignment_data_path,self.config.speaker_data_path,self.config.landmark_model_path)
                 
                 X = X.to(self.device)

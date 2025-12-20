@@ -43,6 +43,13 @@ class Tokenizer():
         for c in text:
             output.append(self.char_to_idx[c])
         return output
+    
+    def labels_to_text(self,tokens):
+        words=[]
+        for t in tokens:
+            words.append(self.idx_to_char[t])
+
+        return "".join(words)
 
 
 

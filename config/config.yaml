@@ -14,3 +14,9 @@ model_trainer:
   speaker_data_path : artifacts/data_ingestion/data/s1
   landmark_model_path : artifacts/data_ingestion/data/landmark_model/face_landmarker.task
 
+model_evaluation:
+  root_dir : artifacts/model_evaluation
+  alignment_data_path : artifacts/data_ingestion/data/alignments/s1
+  speaker_data_path : artifacts/data_ingestion/data/s1
+  landmark_model_path : artifacts/data_ingestion/data/landmark_model/face_landmarker.task
+  model_path : artifacts/model_trainer/transformer_model.pth
