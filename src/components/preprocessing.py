@@ -1,9 +1,37 @@
-import cv2
 import os
+import contextlib
+import warnings
+warnings.filterwarnings('ignore')
+
+@contextlib.contextmanager
+def deep_suppress():
+    """Redirects stdout/stderr at the OS level (file descriptor)."""
+    # Open devnull
+    devnull = os.open(os.devnull, os.O_RDWR)
+    # Duplicate existing stdout/stderr so we can restore them later
+    original_stdout_fd = os.dup(1)
+    original_stderr_fd = os.dup(2)
+    try:
+        # Replace stdout/stderr with devnull
+        os.dup2(devnull, 1)
+        os.dup2(devnull, 2)
+        yield
+    finally:
+        # Restore original descriptors
+        os.dup2(original_stdout_fd, 1)
+        os.dup2(original_stderr_fd, 2)
+        # Close duplicates
+        os.close(devnull)
+        os.close(original_stdout_fd)
+        os.close(original_stderr_fd)
+
+
+import cv2
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 import torch 
+
 
 class Tokenizer():
     def __init__(self):
@@ -36,23 +64,22 @@ class Frames():
             base_options=base_options,
             num_faces=1
         )
-        self.detector = vision.FaceLandmarker.create_from_options(options)
+        with deep_suppress():
+            self.detector = vision.FaceLandmarker.create_from_options(options)
 
 
         # MediaPipe lip landmark indices
         self.LIPS = [
             61, 146, 91, 181, 84, 17, 314, 405,
-            321, 375, 291, 308, 324, 318, 402,
-            317, 14, 87, 178, 88, 95, 185,
-            40, 39, 37, 0, 267, 269, 270,
-            409, 415, 310, 311, 312, 13,
-            82, 81, 42, 183, 78
+            321, 375, 291, 308, 324, 318,
+            402, 317, 14, 87, 178, 88
         ]
-
+        self.FEAT_DIM = len(self.LIPS) * 3 
 
     def extract_mouth_frames(self,video_path):
         cap = cv2.VideoCapture(video_path)
-
+        H=60
+        W=100
         mouth_frames = []
         
         while True:
@@ -73,26 +100,41 @@ class Frames():
             if not result.face_landmarks:
                 continue
         
-            landmarks = result.face_landmarks[0]
-        
-            xs = [int(landmarks[i].x * w) for i in self.LIPS]
-            ys = [int(landmarks[i].y * h) for i in self.LIPS]
-        
-            x_min, x_max = min(xs), max(xs)
-            y_min, y_max = min(ys), max(ys)
-        
-            mouth = frame[y_min:y_max, x_min:x_max]
-        
+            face_landmarks = result.face_landmarks[0]
+
             
-            mouth = cv2.cvtColor(mouth, cv2.COLOR_BGR2GRAY)
-            mouth = cv2.resize(mouth, (100, 50))
-        
-            mouth_frames.append(mouth)
+            xs, ys = [], []
+            for idx in self.LIPS:
+                lm = face_landmarks[idx]
+                xs.append(int(lm.x * w))
+                ys.append(int(lm.y * h))
+    
+            x_min, x_max = max(min(xs)-5,0), min(max(xs)+5, w)
+            y_min, y_max = max(min(ys)-5,0), min(max(ys)+5, h)
+
+            mouth_crop = frame[y_min:y_max, x_min:x_max]
+            mouth_crop = cv2.cvtColor(mouth_crop, cv2.COLOR_BGR2GRAY)
+            mouth_crop = cv2.resize(mouth_crop, (W, H))
+
+    
+            mouth_tensor = torch.tensor(mouth_crop, dtype=torch.float32) / 255.0
+            # mouth_tensor = mouth_tensor.unsqueeze(0)  
+
+            mouth_frames.append(mouth_tensor)
+            
         
         cap.release()
         
 
-        return mouth_frames
+        if len(mouth_frames) == 0:
+            return None
+        
+        # print(type(mouth_frames))            
+        # print(type(mouth_frames[0]))         
+        # print(type(mouth_frames[0][0]))      
+        # print(mouth_frames[0][0].shape)      
+
+        return torch.stack(mouth_frames)
 
 
 
@@ -116,15 +158,21 @@ class Loader():
 
                     
             frames=frames.extract_mouth_frames(speaker_path)
-            frames = torch.tensor(frames, dtype=torch.float32)
-            frames = frames.unsqueeze(0)
+            if frames is not None:
+                frames = torch.tensor(frames, dtype=torch.float32)
+                
+                X_all.append(frames)
+                y_all.append(torch.tensor(decode_text, dtype=torch.long))   
+        
+        # print("Type of X_all:", type(X_all))
+        # print("Length of batch:", len(X_all))
 
-            X_all.append(frames)
-            y_all.append(torch.tensor(decode_text, dtype=torch.long))   
-
+        # print("Type of first element:", type(X_all[0]))
+        # print("Shape of first element:", X_all[0].shape)
         video_tensors = torch.nn.utils.rnn.pad_sequence(
             X_all, batch_first=True
         )   
+        video_tensors = video_tensors.unsqueeze(1)
                     
         return video_tensors, y_all
         

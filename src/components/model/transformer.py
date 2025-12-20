@@ -14,9 +14,9 @@ class Transformer(nn.Module):
 
     def forward(self,x):
         x=self.cnn(x)
-        print("After CNN:", x.shape)
+        # print("After CNN:", x.shape)
         x=self.encoder(x)
-        x=self.cnn(x)
-        print("After Encoder:", x.shape)
+        # print("After Encoder:", x.shape)
         out=self.linear(x)
+        # print("After Linear:", x.shape)
         return out

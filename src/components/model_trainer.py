@@ -10,10 +10,10 @@ from src.components.preprocessing import Tokenizer,Loader
 
 
 
-class Dataset(Dataset):
-    def __init__(self, X_path, y_path):
-        self.X_path = X_path
-        self.y_path = y_path
+class Cnn_Dataset(Dataset):
+    def __init__(self, X_path, y_path, limit=1000):
+        self.X_path = X_path[:limit]
+        self.y_path = y_path[:limit]
 
     def __len__(self):
         return len(self.X_path)
@@ -41,6 +41,10 @@ class Model_Trainer:
             max_length=self.config.max_length,
             vocab_size=vocab_len
         ).to(self.device)
+        model_path=os.path.join(self.config.root_dir,"transformer_model.pth")
+        if os.path.exists(model_path):
+           
+            self.transformer.load_state_dict(torch.load(model_path, map_location=self.device))
 
         
             
@@ -55,7 +59,7 @@ class Model_Trainer:
         ctc_loss = nn.CTCLoss(blank=0, zero_infinity=True)
         loader=Loader()
 
-        dataset = Dataset(X_paths, y_paths)
+        dataset = Cnn_Dataset(X_paths, y_paths)
         dataloader = DataLoader(
             dataset,
             batch_size=self.config.batch_size,  
@@ -65,17 +69,24 @@ class Model_Trainer:
         optimizer = torch.optim.AdamW(self.transformer.parameters(),lr=3e-4,weight_decay=1e-2)
 
         for epoch in range(self.config.epochs):
+            print("Running epoch no : ",epoch+1)
             self.transformer.train()
             total_loss = 0.0
-
+            batch_no=0
             for X_batch, y_batch in dataloader:
+                batch_no=batch_no+1
+                rem=(1000//self.config.batch_size)-batch_no+1
+                print(f"Batch no : {batch_no}, Total batch : {1000/self.config.batch_size}, Remaining batch :{rem}" )
                 X,y=loader.load_data(X_batch, y_batch, self.config.alignment_data_path,self.config.speaker_data_path,self.config.landmark_model_path)
+                
+                X = X.to(self.device)
+                y = [t.to(self.device) for t in y]
 
                 optimizer.zero_grad()
 
                 y_pred=self.transformer(X)
-                y_pred = y_pred.log_softmax(dim=-1)
                 y_pred = y_pred.permute(1, 0, 2)
+                y_pred = y_pred.log_softmax(dim=-1)
 
                 input_lengths = torch.full(
                     size=(y_pred.size(1),),fill_value=y_pred.size(0),dtype=torch.long
@@ -85,8 +96,9 @@ class Model_Trainer:
                     [len(t) for t in y],dtype=torch.long
                 )
 
-                loss = ctc_loss(y_pred,y,input_lengths,target_lengths
-                )
+                targets = torch.cat(y)   
+
+                loss = ctc_loss(y_pred,targets,input_lengths,target_lengths)
 
             
                 loss.backward()

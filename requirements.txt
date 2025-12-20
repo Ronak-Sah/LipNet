@@ -4,7 +4,7 @@ torch
 matplotlib.pyplot
 mediapipe 
 numpy 
-torch>=2.5.0
+torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu127
 python-box==6.0.2
 ensure==1.0.2
 nltk
