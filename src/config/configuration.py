@@ -62,6 +62,7 @@ class ConfigurationManager:
             alignment_data_path=config.alignment_data_path,
             speaker_data_path=config.speaker_data_path,
             landmark_model_path=config.landmark_model_path,
+            model_path=config.model_path,
             emb_dim= params.emb_dim,
             ffn_hidden= params.ffn_hidden,
             num_heads= params.num_heads,

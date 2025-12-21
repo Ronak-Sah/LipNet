@@ -2,7 +2,7 @@ import os
 import contextlib
 import warnings
 warnings.filterwarnings('ignore')
-
+import numpy as np
 @contextlib.contextmanager
 def deep_suppress():
     """Redirects stdout/stderr at the OS level (file descriptor)."""
@@ -150,36 +150,44 @@ class Loader():
         pass
     def load_data(self,X_path,y_path, alignment_data_path, speaker_data_path,landmark_path):
 
-        X_all = []
-        y_all = []
+        # X_all = []
+        # y_all = []
 
-        for align_file, video_file in zip(X_path, y_path):
-            alignment_path=os.path.join(alignment_data_path,align_file)
-            speaker_path=os.path.join(speaker_data_path,video_file)
+        # for video_file, align_file in zip(X_path, y_path):
             
-            frames=Frames(landmark_path)
-            tokeniser=Tokenizer()
-
-            text=decode_align(alignment_path)
-            decode_text=tokeniser.text_to_labels(text)
+        alignment_path=os.path.join(alignment_data_path,y_path)
+        speaker_path=os.path.join(speaker_data_path,X_path)
+            
+        frames=Frames(landmark_path)
+        tokeniser=Tokenizer()
+            
+        text=decode_align(alignment_path)
+        decode_text=tokeniser.text_to_labels(text)
 
                     
-            frames=frames.extract_mouth_frames(speaker_path)
-            if frames is not None:
-                frames = torch.tensor(frames, dtype=torch.float32)
+        frames=frames.extract_mouth_frames(speaker_path)
+        if frames is not None:
+            W, H = 100, 50
+            # resized_frames = [cv2.resize(f, standard_size) for f in frames]
+            resized_frames = []
+    
+            for f in frames:
+                f_np = np.array(f) if torch.is_tensor(f) else np.asarray(f)
                 
-                X_all.append(frames)
-                y_all.append(torch.tensor(decode_text, dtype=torch.long))   
-        
-        # print("Type of X_all:", type(X_all))
-        # print("Length of batch:", len(X_all))
+                resized_frames.append(cv2.resize(f_np, (W, H)))
 
-        # print("Type of first element:", type(X_all[0]))
-        # print("Shape of first element:", X_all[0].shape)
-        video_tensors = torch.nn.utils.rnn.pad_sequence(
-            X_all, batch_first=True
-        )   
-        video_tensors = video_tensors.unsqueeze(1)
+            frames = torch.tensor(np.array(resized_frames), dtype=torch.float32)
+            
+            frames = frames.unsqueeze(1)
+            labels = torch.tensor(decode_text, dtype=torch.long) 
+            # X_all.append(frames)
+            # y_all.append(torch.tensor(decode_text, dtype=torch.long))   
+    
+        
+        # video_tensors = torch.nn.utils.rnn.pad_sequence(
+        #     X_all, batch_first=True
+        # )   
+        # video_tensors = video_tensors.unsqueeze(1)
                     
-        return video_tensors, y_all
+        return frames, labels
         

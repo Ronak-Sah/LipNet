@@ -32,6 +32,7 @@ class ModelEvaluationConfig:
   alignment_data_path : Path
   speaker_data_path : Path
   landmark_model_path : Path
+  model_path : Path
   emb_dim: int
   ffn_hidden: int
   num_heads: int

@@ -4,7 +4,7 @@ from src.entity import ModelEvaluationConfig
 import torch
 import torch.nn as nn
 from torch.utils.data import  Dataset,DataLoader
-from src.components.models.transformer import Transformer
+from src.components.model.transformer import Transformer
 from src.components.preprocessing import Tokenizer,Loader
 
 
