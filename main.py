@@ -44,31 +44,31 @@ from src.pipeline.stage_02_model_trainer import Model_Trainer_pipeline
 
 
 from src.pipeline.stage_03_model_evaluation import Model_Evaluation_pipeline
-def main():
-    model_trainer = Model_Trainer_pipeline()
-    model_trainer.main()
-    model_evaluation=Model_Evaluation_pipeline()
-    model_evaluation.main()
+# def main():
+#     model_trainer = Model_Trainer_pipeline()
+#     model_trainer.main()
+#     model_evaluation=Model_Evaluation_pipeline()
+#     model_evaluation.main()
 
-if __name__ == "__main__":
-    freeze_support()   # IMPORTANT for Windows
-    main()
+# if __name__ == "__main__":
+#     freeze_support()   # IMPORTANT for Windows
+#     main()
     
 
 
 
-# Stage_Name="Model Evaluation Stage"
+Stage_Name="Model Evaluation Stage"
 
-# try:
-#     logger.info("=========================================================================================")
-#     logger.info(f"                                  {Stage_Name} started ")
-#     logger.info("=========================================================================================")
-#     model_evaluation=Model_Evaluation_pipeline()
-#     model_evaluation.main()
-#     logger.info("=========================================================================================")
-#     logger.info(f"                                  {Stage_Name} ended ")
-#     logger.info("=========================================================================================")
-# except Exception as e:
-#     logger.exception(e)
-#     raise e
+try:
+    logger.info("=========================================================================================")
+    logger.info(f"                                  {Stage_Name} started ")
+    logger.info("=========================================================================================")
+    model_evaluation=Model_Evaluation_pipeline()
+    model_evaluation.main()
+    logger.info("=========================================================================================")
+    logger.info(f"                                  {Stage_Name} ended ")
+    logger.info("=========================================================================================")
+except Exception as e:
+    logger.exception(e)
+    raise e
 

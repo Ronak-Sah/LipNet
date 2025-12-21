@@ -6,19 +6,45 @@ import torch.nn as nn
 from torch.utils.data import  Dataset,DataLoader
 from src.components.model.transformer import Transformer
 from src.components.preprocessing import Tokenizer,Loader
+from torch.nn.utils.rnn import pad_sequence
 
+def collate_fn(batch):
+    batch = [item for item in batch if item is not None]
+    videos, labels = zip(*batch)
+    
+    videos_padded = pad_sequence(videos, batch_first=True, padding_value=0.0)
 
+    input_lengths = torch.tensor([v.size(0) for v in videos], dtype=torch.long)
+    target_lengths = torch.tensor([len(l) for l in labels], dtype=torch.long)
+    
+    return videos_padded, list(labels), input_lengths, target_lengths
 
 class Cnn_Dataset(Dataset):
-    def __init__(self, X_path, y_path, limit=100):
-        self.X_path = X_path[1000:1000+limit]
-        self.y_path = y_path[1000:1000+limit]
-
+    def __init__(self, X_path, y_path,  config,limit=100):
+        self.X_path = X_path[500:limit+500]
+        self.y_path = y_path[500:limit+500]
+        self.config = config
+        self.loader = Loader()
     def __len__(self):
         return len(self.X_path)
 
     def __getitem__(self, idx):
-        return self.X_path[idx], self.X_path[idx].split("\\")[-1][0:-5]+"mpg"
+        y_file = self.y_path[idx]
+        name_no_ext = os.path.splitext(y_file)[0] 
+        x_file = f"{name_no_ext}.mpg"
+        
+
+        # print(x_file)
+        # print(y_file)
+        X, y = self.loader.load_data(
+            x_file, y_file, 
+            self.config.alignment_data_path, 
+            self.config.speaker_data_path,
+            self.config.landmark_model_path
+        )
+        return X, y
+
+
 
 
 tokenizer=Tokenizer()
@@ -91,8 +117,11 @@ class Model_Evaluation:
         ).to(self.device)
 
         model_path = config.model_path
-        self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+        checkpoint_path = os.path.join("artifacts\model_trainer\checkpoint.pth")
+        # self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
 
+        self.model.load_state_dict(checkpoint["model_state"])
 
         logger.info("Model loaded succesfully for evaluation")
 
@@ -107,27 +136,32 @@ class Model_Evaluation:
         alignment_path=os.path.join(self.config.alignment_data_path)
         speaker_path=os.path.join(self.config.speaker_data_path)
 
-        X_paths=os.listdir(alignment_path)
-        y_paths=os.listdir(speaker_path)
+        X_paths=os.listdir(speaker_path)
+        y_paths=os.listdir(alignment_path)
 
         loader=Loader()
 
-        dataset = Cnn_Dataset(X_paths, y_paths)
+        dataset = Cnn_Dataset(X_paths, y_paths,self.config)
         dataloader = DataLoader(
             dataset,
             batch_size=self.config.batch_size,  
-            shuffle=True
+            shuffle=True,
+            num_workers=0,
+            pin_memory=True,
+            collate_fn=collate_fn
+            # persistent_workers=True
         )
 
         with torch.no_grad():
-            for X_batch, y_batch in dataloader:
+            for X_batch, y_batch, input_lengths, target_lengths in dataloader:
+                total_batches = len(dataloader)
                 batch_no=batch_no+1
-                rem=(100//self.config.batch_size)-batch_no+1
-                print(f"Batch no : {batch_no}, Total batch : {100/self.config.batch_size}, Remaining batch :{rem}" )
-                X,y=loader.load_data(X_batch, y_batch, self.config.alignment_data_path,self.config.speaker_data_path,self.config.landmark_model_path)
+                rem=int(total_batches) - batch_no
+                print(f"Batch no : {batch_no}, Total batch : {total_batches}, Remaining batch :{rem}" )
+                # X,y=loader.load_data(X_batch, y_batch, self.config.alignment_data_path,self.config.speaker_data_path,self.config.landmark_model_path)
                 
-                X = X.to(self.device)
-                y = [t.to(self.device) for t in y]
+                X = X_batch.to(self.device).permute(0, 2, 1, 3, 4)
+                y = [t.to(self.device) for t in y_batch]
 
 
                 y_pred=self.model(X)
@@ -142,7 +176,7 @@ class Model_Evaluation:
                     gt_text = tokenizer.labels_to_text(y[i].tolist())
                     total_wer += word_error_rate(gt_text, pred_text)
                     count += 1
-        
+        print("Word error rate is :",total_wer / count)
         return total_wer / count
     
 

@@ -89,7 +89,8 @@ class Model_Trainer:
             shuffle=True,
             num_workers=8,
             pin_memory=True,
-            collate_fn=collate_fn
+            collate_fn=collate_fn,
+            persistent_workers=True
         )
 
         optimizer = torch.optim.AdamW(self.transformer.parameters(),lr=1e-4,weight_decay=1e-2)

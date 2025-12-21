@@ -4,7 +4,7 @@ from src.entity import ModelEvaluationConfig
 import torch
 import torch.nn as nn
 from torch.utils.data import  Dataset,DataLoader
-from src.components.models.transformer import Transformer
+from src.components.model.transformer import Transformer
 from src.components.preprocessing import Tokenizer,Loader,Frames
 
 
@@ -48,24 +48,29 @@ class ModelPrediction:
         ).to(self.device)
 
         model_path = config.model_path
-        self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+        # self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+        checkpoint_path = os.path.join("artifacts\model_trainer\checkpoint.pth")
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+
+        self.model.load_state_dict(checkpoint["model_state"])
 
     def predict(self, video_path):
         self.model.eval()
-
-        load_frames=Frames()
+        
+        load_frames=Frames(self.config.landmark_model_path)
         frames=load_frames.extract_mouth_frames(video_path)
-
-        if frames is not None:
-                frames = torch.tensor(frames, dtype=torch.float32)
+        if frames is None:
+            return ""
+        frames = frames.unsqueeze(0)
+        frames = torch.tensor(frames, dtype=torch.float32)
 
         with torch.no_grad():
-            X = frames.to(self.device)
+            X = frames.unsqueeze(0).to(self.device)
 
             y_pred=self.model(X)
 
             decoded_tokens = ctc_greedy_decode(y_pred)
 
-            pred_text = tokenizer.labels_to_text(decoded_tokens)
+            pred_text = tokenizer.labels_to_text(decoded_tokens[0])
 
         return pred_text
