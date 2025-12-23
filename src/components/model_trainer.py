@@ -7,7 +7,7 @@ from torch.utils.data import Dataset, DataLoader
 from src.components.model.transformer import Transformer
 from src.components.preprocessing import Tokenizer,Loader
 from torch.nn.utils.rnn import pad_sequence
-
+from torch.optim.lr_scheduler import LambdaLR
 
 def collate_fn(batch):
     batch = [item for item in batch if item is not None]
@@ -15,10 +15,16 @@ def collate_fn(batch):
     
     videos_padded = pad_sequence(videos, batch_first=True, padding_value=0.0)
 
-    input_lengths = torch.tensor([v.size(0) for v in videos], dtype=torch.long)
-    target_lengths = torch.tensor([len(l) for l in labels], dtype=torch.long)
-    
-    return videos_padded, list(labels), input_lengths, target_lengths
+    # input_lengths = torch.tensor([v.size(0) for v in videos], dtype=torch.long)
+    # target_lengths = torch.tensor([len(l) for l in labels], dtype=torch.long)
+    # videos_padded = (videos_padded - videos_padded.mean(dim=(0,1), keepdim=True)) / (videos_padded.std(dim=(0,1), keepdim=True) + 1e-8)
+
+    eps = 1e-5
+    mean = videos_padded.mean(dim=(1, 2, 3, 4), keepdim=True)
+    std = videos_padded.std(dim=(1, 2, 3, 4), keepdim=True)
+    videos_padded = (videos_padded - mean) / (std + eps)
+
+    return videos_padded, list(labels)
 
 class Cnn_Dataset(Dataset):
     def __init__(self, X_path, y_path,  config,limit=500):
@@ -43,10 +49,12 @@ class Cnn_Dataset(Dataset):
             self.config.speaker_data_path,
             self.config.landmark_model_path
         )
+        if isinstance(X, torch.Tensor):
+            X = (X - X.mean(dim=0, keepdim=True)) / (X.std(dim=0, keepdim=True) + 1e-8)
         return X, y
 
 tokenizer=Tokenizer()
-vocab_len=len(tokenizer.vocab)
+vocab_len=len(tokenizer.idx_to_char)
 
 
 
@@ -93,9 +101,12 @@ class Model_Trainer:
             persistent_workers=True
         )
 
-        optimizer = torch.optim.AdamW(self.transformer.parameters(),lr=1e-4,weight_decay=1e-2)
-        scheduler = torch.optim.lr_scheduler.LinearLR(optimizer,start_factor=0.1,total_iters=500)
-
+        optimizer = torch.optim.AdamW(self.transformer.parameters(),lr=1e-5,weight_decay=1e-2)
+        # scheduler = torch.optim.lr_scheduler.LinearLR(optimizer,start_factor=0.1,total_iters=500)
+        num_warmup_steps = len(dataloader) * self.config.epochs * 0.1  
+        def warmup_lambda(step):
+            return min(1.0, step / num_warmup_steps)
+        scheduler = LambdaLR(optimizer, lr_lambda=warmup_lambda)
 
         start_epoch = 0
         if os.path.exists(checkpoint_path):
@@ -103,7 +114,7 @@ class Model_Trainer:
 
             self.transformer.load_state_dict(checkpoint["model_state"])
             optimizer.load_state_dict(checkpoint["optimizer_state"])
-            scheduler.load_state_dict(checkpoint["scheduler_state"])
+            # scheduler.load_state_dict(checkpoint["scheduler_state"])
             start_epoch = checkpoint["epoch"] + 1
 
             print(f"Resuming from epoch {start_epoch}")
@@ -113,7 +124,7 @@ class Model_Trainer:
             self.transformer.train()
             total_loss = 0.0
             batch_no=0
-            for X_batch, y_batch, input_lengths, target_lengths in dataloader:
+            for X_batch, y_batch in dataloader:
                 total_batches = len(dataloader)
                 batch_no=batch_no+1
                 rem=int(total_batches) - batch_no
@@ -123,38 +134,61 @@ class Model_Trainer:
                 y = [t.to(self.device) for t in y_batch]
 
                 optimizer.zero_grad()
-
+                if torch.isnan(X).any():
+                    print("Skipping batch: NaN detected in input frames")
+                    continue
                 y_pred=self.transformer(X)
+                # print("y_pred ",y_pred.shape)
+                print(y[0].shape)
+                print(len(y))
                 y_pred = y_pred.log_softmax(dim=-1)
+                # print(y_pred.argmax(dim=-1)[0])
                 y_pred = y_pred.permute(1, 0, 2)
 
-                # input_lengths = torch.full(
-                #     size=(y_pred.size(1),),fill_value=y_pred.size(0),dtype=torch.long
-                # )
+                input_lengths = torch.full(
+                    size=(y_pred.size(1),),fill_value=y_pred.size(0),dtype=torch.long
+                )
 
-                # target_lengths = torch.tensor(
-                #     [len(t) for t in y],dtype=torch.long
-                # )
+                target_lengths = torch.tensor(
+                    [len(t) for t in y],dtype=torch.long
+                )
 
                 targets = torch.cat(y)   
+                print("y_pred shape ",y_pred.shape)
+                # print("y_pred ",y_pred)
+                # print("targets shape ",targets.shape)
+                # print("targets ",targets)
+                # print("y_pred shape ",len(y_pred[0][0]))
+                # print(f"Input Lengths: {input_lengths}")
+                # print(f"Target Lengths: {target_lengths}")
 
                 loss = ctc_loss(y_pred,targets,input_lengths,target_lengths)
 
-            
+
                 loss.backward()
+                grad_norm = torch.nn.utils.clip_grad_norm_(self.transformer.parameters(), max_norm=5.0)
+                if torch.isnan(grad_norm) or grad_norm > 1000.0:
+                    print(f"Skipping batch {batch_no}: Extreme grad norm {grad_norm:.2f}")
+                    continue
+               
+
+
+                if grad_norm > 10.0:  
+                    print(f"Warning: Large grad norm {grad_norm:.2f} at batch {batch_no}")
                 optimizer.step()
                 scheduler.step()
 
                 total_loss += loss.item()
 
-
             torch.save({
                 "epoch": epoch,
                 "model_state": self.transformer.state_dict(),
                 "optimizer_state": optimizer.state_dict(),
-                "scheduler_state": scheduler.state_dict()
+                # "scheduler_state": scheduler.state_dict()
             }, checkpoint_path)
-            print(f"Epoch {epoch+1}/{self.config.epochs}, Loss: {total_loss: .4f}")
+            print(f"Epoch {epoch+1}/{self.config.epochs+start_epoch}, Loss: {total_loss: .4f}")
+            avg_loss = total_loss / len(dataloader)
+            print(f"Epoch {epoch+1}/{self.config.epochs+start_epoch}, Avg Loss: {avg_loss:.4f}")
 
         os.makedirs(self.config.root_dir, exist_ok=True)
 

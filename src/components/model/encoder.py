@@ -18,10 +18,12 @@ class Sequential_Encoder(nn.Module):
 class Encoder(nn.Module):
     def __init__(self, ffn_hidden, num_heads, num_layers,max_len,drop_prob=0.1, emb_dim=256):
         super().__init__()
+        
         self.position_encoding=PositionalEncoding(emb_dim,max_len)
         self.layers = Sequential_Encoder(emb_dim, num_heads, ffn_hidden, drop_prob, num_layers)
-        
+        self.ln = nn.LayerNorm(emb_dim)
     def forward(self, x):
-        
+        x = self.ln(x)
+        x=self.position_encoding(x)
         x = self.layers(x)
         return x

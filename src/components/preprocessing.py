@@ -33,10 +33,12 @@ from mediapipe.tasks.python import vision
 import torch 
 
 
+
 class Tokenizer():
     def __init__(self):
         self.vocab = list("abcdefghijklmnopqrstuvwxyz1234567890!ABCDEFGHIJKLMNOPQRSTUVWXYZ ")
         self.char_to_idx = {c: i+1 for i, c in enumerate(self.vocab)} 
+        self.char_to_idx[""]=0
         self.idx_to_char = {i: c for c, i in self.char_to_idx.items()}
     def text_to_labels(self,text):
         output=[]
