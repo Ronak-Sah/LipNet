@@ -1,8 +1,7 @@
 from src.components.inference import ModelPrediction
 from src.config.configuration import ConfigurationManager
 
-video_path = r"C:\Users\ronak\OneDrive\Desktop\data\s1\sgbc8p.mpg"
-
+video_path = r"D:\Ml Dl\Project\LipNet\artifacts\data_ingestion\data\s1\bbaf2n.mpg"
 config=ConfigurationManager()
 model_prediction_config=config.get_model_evaluation()
 

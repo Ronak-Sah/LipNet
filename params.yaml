@@ -1,5 +1,5 @@
 model_trainer:
-  epochs: 2
+  epochs: 10
   emb_dim: 256
   ffn_hidden: 256
   num_heads: 4

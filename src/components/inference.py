@@ -10,7 +10,7 @@ from src.components.preprocessing import Tokenizer,Loader,Frames
 
 
 tokenizer=Tokenizer()
-vocab_len=len(tokenizer.vocab)
+vocab_len=len(tokenizer.idx_to_char)
 
 
 import torch
@@ -66,7 +66,8 @@ class ModelPrediction:
 
         with torch.no_grad():
             X = frames.unsqueeze(0).to(self.device)
-
+            if isinstance(X, torch.Tensor):
+                X = (X - X.mean(dim=0, keepdim=True)) / (X.std(dim=0, keepdim=True) + 1e-8)
             y_pred=self.model(X)
 
             decoded_tokens = ctc_greedy_decode(y_pred)

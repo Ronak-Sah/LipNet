@@ -139,8 +139,8 @@ class Model_Trainer:
                     continue
                 y_pred=self.transformer(X)
                 # print("y_pred ",y_pred.shape)
-                print(y[0].shape)
-                print(len(y))
+                # print(y[0].shape)
+                # print(len(y))
                 y_pred = y_pred.log_softmax(dim=-1)
                 # print(y_pred.argmax(dim=-1)[0])
                 y_pred = y_pred.permute(1, 0, 2)
@@ -154,7 +154,7 @@ class Model_Trainer:
                 )
 
                 targets = torch.cat(y)   
-                print("y_pred shape ",y_pred.shape)
+                # print("y_pred shape ",y_pred.shape)
                 # print("y_pred ",y_pred)
                 # print("targets shape ",targets.shape)
                 # print("targets ",targets)

@@ -14,10 +14,16 @@ def collate_fn(batch):
     
     videos_padded = pad_sequence(videos, batch_first=True, padding_value=0.0)
 
-    input_lengths = torch.tensor([v.size(0) for v in videos], dtype=torch.long)
-    target_lengths = torch.tensor([len(l) for l in labels], dtype=torch.long)
+    # input_lengths = torch.tensor([v.size(0) for v in videos], dtype=torch.long)
+    # target_lengths = torch.tensor([len(l) for l in labels], dtype=torch.long)
     
-    return videos_padded, list(labels), input_lengths, target_lengths
+    eps = 1e-5
+    mean = videos_padded.mean(dim=(1, 2, 3, 4), keepdim=True)
+    std = videos_padded.std(dim=(1, 2, 3, 4), keepdim=True)
+    videos_padded = (videos_padded - mean) / (std + eps)
+
+    return videos_padded, list(labels)
+    
 
 class Cnn_Dataset(Dataset):
     def __init__(self, X_path, y_path,  config,limit=100):
@@ -42,13 +48,15 @@ class Cnn_Dataset(Dataset):
             self.config.speaker_data_path,
             self.config.landmark_model_path
         )
+        if isinstance(X, torch.Tensor):
+            X = (X - X.mean(dim=0, keepdim=True)) / (X.std(dim=0, keepdim=True) + 1e-8)
         return X, y
 
 
 
 
 tokenizer=Tokenizer()
-vocab_len=len(tokenizer.vocab)
+vocab_len=len(tokenizer.idx_to_char)
 
 
 import torch
@@ -153,7 +161,7 @@ class Model_Evaluation:
         )
 
         with torch.no_grad():
-            for X_batch, y_batch, input_lengths, target_lengths in dataloader:
+            for X_batch, y_batch in dataloader:
                 total_batches = len(dataloader)
                 batch_no=batch_no+1
                 rem=int(total_batches) - batch_no
