@@ -48,8 +48,8 @@ def main():
     logger.info("Code Starts")
     # data_ingestion=Data_Ingestion_pipeline()
     # data_ingestion.main()
-    # model_trainer = Model_Trainer_pipeline()
-    # model_trainer.main()
+    model_trainer = Model_Trainer_pipeline()
+    model_trainer.main()
     model_evaluation=Model_Evaluation_pipeline()
     model_evaluation.main()
 

@@ -19,15 +19,15 @@ def collate_fn(batch):
     # target_lengths = torch.tensor([len(l) for l in labels], dtype=torch.long)
     # videos_padded = (videos_padded - videos_padded.mean(dim=(0,1), keepdim=True)) / (videos_padded.std(dim=(0,1), keepdim=True) + 1e-8)
 
-    eps = 1e-5
-    mean = videos_padded.mean(dim=(1, 2, 3, 4), keepdim=True)
-    std = videos_padded.std(dim=(1, 2, 3, 4), keepdim=True)
-    videos_padded = (videos_padded - mean) / (std + eps)
+    # eps = 1e-5
+    # mean = videos_padded.mean(dim=(1, 2, 3, 4), keepdim=True)
+    # std = videos_padded.std(dim=(1, 2, 3, 4), keepdim=True)
+    # videos_padded = (videos_padded - mean) / (std + eps)
 
     return videos_padded, list(labels)
 
 class Cnn_Dataset(Dataset):
-    def __init__(self, X_path, y_path,  config,limit=500):
+    def __init__(self, X_path, y_path,  config,limit=1000):
         self.X_path = X_path[:limit]
         self.y_path = y_path[:limit]
         self.config = config
@@ -49,8 +49,8 @@ class Cnn_Dataset(Dataset):
             self.config.speaker_data_path,
             self.config.landmark_model_path
         )
-        if isinstance(X, torch.Tensor):
-            X = (X - X.mean(dim=0, keepdim=True)) / (X.std(dim=0, keepdim=True) + 1e-8)
+        # if isinstance(X, torch.Tensor):
+        #     X = (X - X.mean(dim=0, keepdim=True)) / (X.std(dim=0, keepdim=True) + 1e-8)
         return X, y
 
 tokenizer=Tokenizer()
@@ -83,6 +83,7 @@ class Model_Trainer:
 
         model_path = os.path.join(self.config.root_dir, "transformer_model.pth")
         checkpoint_path = os.path.join(self.config.root_dir, "checkpoint.pth")
+        best_model_path = os.path.join(self.config.root_dir, "best_model.pth")
 
         y_paths=os.listdir(alignment_path)
         X_paths=os.listdir(speaker_path)
@@ -101,13 +102,21 @@ class Model_Trainer:
             persistent_workers=True
         )
 
-        optimizer = torch.optim.AdamW(self.transformer.parameters(),lr=1e-5,weight_decay=1e-2)
+        optimizer = torch.optim.AdamW(self.transformer.parameters(),lr=3e-4,weight_decay=1e-2)
         # scheduler = torch.optim.lr_scheduler.LinearLR(optimizer,start_factor=0.1,total_iters=500)
         num_warmup_steps = len(dataloader) * self.config.epochs * 0.1  
         def warmup_lambda(step):
             return min(1.0, step / num_warmup_steps)
-        scheduler = LambdaLR(optimizer, lr_lambda=warmup_lambda)
-
+        # scheduler = LambdaLR(optimizer, lr_lambda=warmup_lambda)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode='min',
+            factor=0.5,          # halve LR
+            patience=3,          # wait 3 epochs with no improvement
+            verbose=True,
+            min_lr=1e-6
+        )
+        best_loss=float("inf")
         start_epoch = 0
         if os.path.exists(checkpoint_path):
             checkpoint = torch.load(checkpoint_path, map_location=self.device)
@@ -176,7 +185,6 @@ class Model_Trainer:
                 if grad_norm > 10.0:  
                     print(f"Warning: Large grad norm {grad_norm:.2f} at batch {batch_no}")
                 optimizer.step()
-                scheduler.step()
 
                 total_loss += loss.item()
 
@@ -188,7 +196,15 @@ class Model_Trainer:
             }, checkpoint_path)
             print(f"Epoch {epoch+1}/{self.config.epochs+start_epoch}, Loss: {total_loss: .4f}")
             avg_loss = total_loss / len(dataloader)
+            scheduler.step(avg_loss)
             print(f"Epoch {epoch+1}/{self.config.epochs+start_epoch}, Avg Loss: {avg_loss:.4f}")
+
+            if avg_loss < best_loss:
+                best_loss = avg_loss
+                os.makedirs(self.config.root_dir, exist_ok=True)
+                torch.save(self.transformer.state_dict(),best_model_path)
+
+                print(f"*** New best model saved! Avg Loss: {avg_loss:.4f} ***")
 
         os.makedirs(self.config.root_dir, exist_ok=True)
 

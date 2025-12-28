@@ -17,10 +17,10 @@ def collate_fn(batch):
     # input_lengths = torch.tensor([v.size(0) for v in videos], dtype=torch.long)
     # target_lengths = torch.tensor([len(l) for l in labels], dtype=torch.long)
     
-    eps = 1e-5
-    mean = videos_padded.mean(dim=(1, 2, 3, 4), keepdim=True)
-    std = videos_padded.std(dim=(1, 2, 3, 4), keepdim=True)
-    videos_padded = (videos_padded - mean) / (std + eps)
+    # eps = 1e-5
+    # mean = videos_padded.mean(dim=(1, 2, 3, 4), keepdim=True)
+    # std = videos_padded.std(dim=(1, 2, 3, 4), keepdim=True)
+    # videos_padded = (videos_padded - mean) / (std + eps)
 
     return videos_padded, list(labels)
     
@@ -48,8 +48,8 @@ class Cnn_Dataset(Dataset):
             self.config.speaker_data_path,
             self.config.landmark_model_path
         )
-        if isinstance(X, torch.Tensor):
-            X = (X - X.mean(dim=0, keepdim=True)) / (X.std(dim=0, keepdim=True) + 1e-8)
+        # if isinstance(X, torch.Tensor):
+        #     X = (X - X.mean(dim=0, keepdim=True)) / (X.std(dim=0, keepdim=True) + 1e-8)
         return X, y
 
 

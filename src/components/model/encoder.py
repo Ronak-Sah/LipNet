@@ -16,7 +16,7 @@ class Sequential_Encoder(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, ffn_hidden, num_heads, num_layers,max_len,drop_prob=0.1, emb_dim=256):
+    def __init__(self, ffn_hidden, num_heads, num_layers,max_len,drop_prob=0.3, emb_dim=256):
         super().__init__()
         
         self.position_encoding=PositionalEncoding(emb_dim,max_len)
