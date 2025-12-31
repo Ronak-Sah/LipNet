@@ -29,7 +29,7 @@ The model uses a CNN-based visual front-end followed by an **encoder-only Transf
 ## 📊 Results
 
 Final training evaluation:
-
+```text
 Batch no : 1, Total batch : 7, Remaining batch : 6
 Batch no : 2, Total batch : 7, Remaining batch : 5
 Batch no : 3, Total batch : 7, Remaining batch : 4
@@ -37,7 +37,7 @@ Batch no : 4, Total batch : 7, Remaining batch : 3
 Batch no : 5, Total batch : 7, Remaining batch : 2
 Batch no : 6, Total batch : 7, Remaining batch : 1
 Batch no : 7, Total batch : 7, Remaining batch : 0
-
+```
 Word error rate is : 0.1959523809523809
 
 
@@ -46,7 +46,7 @@ Word error rate is : 0.1959523809523809
 ---
 
 ## 🧠 Model Architecture
-
+```
 Input Video Frames
 ↓
 3 × CNN Layers
@@ -56,7 +56,7 @@ Encoder-only Transformer
 CTC Decoder
 ↓
 Predicted Text
-
+```
 ---
 
 ## 🏋️ Training the Model
