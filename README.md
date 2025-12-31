@@ -40,8 +40,6 @@ Batch no : 7, Total batch : 7, Remaining batch : 0
 
 Word error rate is : 0.1959523809523809
 
-yaml
-Copy code
 
 ➡️ **WER ≈ 19%**
 
@@ -59,9 +57,6 @@ CTC Decoder
 ↓
 Predicted Text
 
-yaml
-Copy code
-
 ---
 
 ## 🏋️ Training the Model
@@ -77,7 +72,6 @@ The trained model is served using FastAPI.
 Start the API server with:
 
 ```bash
-Copy code
 uvicorn app:app --reload
 ```
 The API accepts video input and returns the predicted text output and time taken for prediction .
@@ -100,26 +94,20 @@ The complete project is Dockerized for easy deployment.
 
 Build Docker Image
 bash
-Copy code
+```
 docker build -t lipnet .
+```
 Run Docker Container
 ```bash
-Copy code
 docker run -p 8000:8000 lipnet
 ```
 ## 📌 Technologies Used
 Python
-
 PyTorch
-
 Transformer (Encoder-only)
-
 FastAPI
-
 TorchScript
-
 Docker
-
 Uvicorn
 
 ## 🔮 Future Improvements
