@@ -147,7 +147,10 @@ class Model_Evaluation:
         X_paths=os.listdir(speaker_path)
         y_paths=os.listdir(alignment_path)
 
-        loader=Loader()
+        scripted_model = torch.jit.script(self.model)
+        scripted_model = torch.jit.optimize_for_inference(scripted_model)
+        scripted_model.save(os.path.join(self.config.root_dir,"lip_reading.pt"))
+
 
         dataset = Cnn_Dataset(X_paths, y_paths,self.config)
         dataloader = DataLoader(

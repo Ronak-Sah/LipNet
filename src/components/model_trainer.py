@@ -116,7 +116,7 @@ class Model_Trainer:
             verbose=True,
             min_lr=1e-6
         )
-        best_loss=float("inf")
+        best_loss=0.0653
         start_epoch = 0
         if os.path.exists(checkpoint_path):
             checkpoint = torch.load(checkpoint_path, map_location=self.device)

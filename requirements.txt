@@ -1,12 +1,24 @@
-pandas
-cv2
-torch
-matplotlib.pyplot
-mediapipe 
-numpy 
-torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu127
-python-box==6.0.2
-ensure==1.0.2
-nltk
-yaml
--e .
+# Core ML / DL
+torch==2.5.1
+torchvision==0.20.1
+torchaudio==2.5.1
+numpy==2.0.1
+tqdm==4.67.1
+
+# Computer Vision
+opencv-python==4.12.0.88
+mediapipe==0.10.31
+Pillow
+
+# API
+fastapi==0.128.0
+uvicorn==0.40.0
+python-multipart==0.0.21
+pydantic==2.12.5
+starlette==0.50.0
+
+# Utilities
+requests
+gdown
+PyYAML
+python-box
